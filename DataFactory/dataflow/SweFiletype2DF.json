@@ -1,0 +1,217 @@
+{
+	"name": "SweFiletype2DF",
+	"properties": {
+		"type": "MappingDataFlow",
+		"typeProperties": {
+			"sources": [
+				{
+					"dataset": {
+						"referenceName": "SWNAzureSqlDb",
+						"type": "DatasetReference"
+					},
+					"name": "CSVStagingTable"
+				},
+				{
+					"dataset": {
+						"referenceName": "SWNAzureSqlDb",
+						"type": "DatasetReference"
+					},
+					"name": "ExcelStagingTable"
+				},
+				{
+					"dataset": {
+						"referenceName": "SWNAzureSqlDb",
+						"type": "DatasetReference"
+					},
+					"name": "LKPTargetTable"
+				},
+				{
+					"dataset": {
+						"referenceName": "SWNAzureSqlDb",
+						"type": "DatasetReference"
+					},
+					"name": "MaxWidinTarget"
+				}
+			],
+			"sinks": [
+				{
+					"dataset": {
+						"referenceName": "SWNAzureSqlDb",
+						"type": "DatasetReference"
+					},
+					"name": "TargetDimensionInsert"
+				},
+				{
+					"dataset": {
+						"referenceName": "SWNAzureSqlDb",
+						"type": "DatasetReference"
+					},
+					"name": "sink1"
+				}
+			],
+			"transformations": [
+				{
+					"name": "unionof2source"
+				},
+				{
+					"name": "Deduplication"
+				},
+				{
+					"name": "DerivedColumnForAddressID"
+				},
+				{
+					"name": "joinMaxRowWid"
+				},
+				{
+					"name": "DCforDateFields"
+				},
+				{
+					"name": "ConditionalSplit"
+				},
+				{
+					"name": "SurrogateKeyRowWid"
+				},
+				{
+					"name": "joinForMaxWid"
+				},
+				{
+					"name": "derivedColumn1"
+				},
+				{
+					"name": "derivedColumn2"
+				},
+				{
+					"name": "select1"
+				},
+				{
+					"name": "alterRow1"
+				}
+			],
+			"scriptLines": [
+				"parameters{",
+				"     TargetSchemaName as string,",
+				"     TargetTableName as string,",
+				"     W_INSERT_DT as string,",
+				"     KeyCol as string",
+				"}",
+				"source(output(",
+				"          Year as short,",
+				"          Region_ID as integer,",
+				"          Region as string,",
+				"          Country_ID as short,",
+				"          Country as string,",
+				"          Population as long",
+				"     ),",
+				"     allowSchemaDrift: true,",
+				"     validateSchema: false,",
+				"     isolationLevel: 'READ_UNCOMMITTED',",
+				"     format: 'table') ~> CSVStagingTable",
+				"source(output(",
+				"          Year as short,",
+				"          Region_ID as integer,",
+				"          Region as string,",
+				"          Country_ID as short,",
+				"          Country as string,",
+				"          Population as long",
+				"     ),",
+				"     allowSchemaDrift: true,",
+				"     validateSchema: false,",
+				"     inferDriftedColumnTypes: true,",
+				"     isolationLevel: 'READ_UNCOMMITTED',",
+				"     format: 'table') ~> ExcelStagingTable",
+				"source(output(",
+				"          LKP_ROW_WID as integer,",
+				"          LKP_Effective_Start_Date as timestamp,",
+				"          LKP_Effective_End_Date as timestamp,",
+				"          LKP_Is_Current as short,",
+				"          LKP_Year as short,",
+				"          LKP_Region_ID as integer,",
+				"          LKP_Region as string,",
+				"          LKP_Country_ID as integer,",
+				"          LKP_Country as string,",
+				"          LKP_Population as long,",
+				"          LKP_Address_ID as string",
+				"     ),",
+				"     allowSchemaDrift: true,",
+				"     validateSchema: false,",
+				"     isolationLevel: 'READ_UNCOMMITTED',",
+				"     query: (concat('SELECT ROW_WID as LKP_ROW_WID,Effective_Start_Date as LKP_Effective_Start_Date,Effective_End_Date as LKP_Effective_End_Date, Is_Current as LKP_Is_Current, Year as  LKP_Year,Region_ID  as LKP_Region_ID,Region   as LKP_Region,Country_ID  as LKP_Country_ID,Country   as LKP_Country, Population  as LKP_Population,Address_ID  as LKP_Address_ID FROM ', $TargetSchemaName,'.',$TargetTableName , ' WHERE Is_Current = 1 ')),",
+				"     format: 'query') ~> LKPTargetTable",
+				"source(output(",
+				"          CURRENT_ROW_WID as integer",
+				"     ),",
+				"     allowSchemaDrift: true,",
+				"     validateSchema: false,",
+				"     isolationLevel: 'READ_UNCOMMITTED',",
+				"     query: (concat('SELECT MAX(ROW_WID) AS CURRENT_ROW_WID FROM ',concat($TargetSchemaName,'.',$TargetTableName))),",
+				"     format: 'query') ~> MaxWidinTarget",
+				"CSVStagingTable, ExcelStagingTable union(byName: true)~> unionof2source",
+				"unionof2source aggregate(groupBy(Region,",
+				"          Region_ID,",
+				"          Year,",
+				"          Country_ID,",
+				"          Country),",
+				"     Population = max(Population)) ~> Deduplication",
+				"Deduplication derive(Address_ID = concatWS('~',toString(byName('Year')),toString(byName('Country_ID')),toString(byName('Region_ID')))) ~> DerivedColumnForAddressID",
+				"DerivedColumnForAddressID, LKPTargetTable join(Region_ID == LKP_Region_ID",
+				"     && Year == LKP_Year",
+				"     && Country_ID == LKP_Country_ID,",
+				"     joinType:'left',",
+				"     matchType:'exact',",
+				"     ignoreSpaces: false,",
+				"     broadcast: 'auto')~> joinMaxRowWid",
+				"joinMaxRowWid derive(Eff_Strt_dt = toTimestamp($W_INSERT_DT, 'yyyy-MM-dd\\'T\\'HH:mm:ss'),",
+				"          Eff_End_dt = toTimestamp($W_INSERT_DT, 'yyyy-MM-dd\\'T\\'HH:mm:ss'),",
+				"          New_Flag = iif(isNull(LKP_ROW_WID),1,0)) ~> DCforDateFields",
+				"DCforDateFields split(New_Flag==1||New_Flag==0,",
+				"     New_Flag==0,",
+				"     disjoint: true) ~> ConditionalSplit@(InsertGroup, UpdateGroup, default)",
+				"ConditionalSplit@InsertGroup keyGenerate(output(SurrogateKeyRowWid as long),",
+				"     startAt: 1L,",
+				"     stepValue: 1L) ~> SurrogateKeyRowWid",
+				"SurrogateKeyRowWid, MaxWidinTarget join(true(),",
+				"     joinType:'cross',",
+				"     matchType:'exact',",
+				"     ignoreSpaces: false,",
+				"     broadcast: 'auto')~> joinForMaxWid",
+				"joinForMaxWid derive(Effective_Start_Date = Eff_Strt_dt,",
+				"          Effective_End_Date = Eff_End_dt,",
+				"          Is_Current = toInteger(1),",
+				"          Row_wid = SurrogateKeyRowWid + iif(isNull(CURRENT_ROW_WID),0,toInteger(CURRENT_ROW_WID))) ~> derivedColumn1",
+				"ConditionalSplit@UpdateGroup derive(Is_Current = toInteger(0),",
+				"          UPD_Row_wid = LKP_ROW_WID) ~> derivedColumn2",
+				"derivedColumn2 select(mapColumn(",
+				"          Row_wid = UPD_Row_wid,",
+				"          Is_Current,",
+				"          Effective_End_Date = Eff_Strt_dt",
+				"     ),",
+				"     skipDuplicateMapInputs: true,",
+				"     skipDuplicateMapOutputs: true) ~> select1",
+				"select1 alterRow(updateIf(true())) ~> alterRow1",
+				"derivedColumn1 sink(allowSchemaDrift: true,",
+				"     validateSchema: false,",
+				"     deletable:false,",
+				"     insertable:true,",
+				"     updateable:false,",
+				"     upsertable:false,",
+				"     format: 'table',",
+				"     skipDuplicateMapInputs: true,",
+				"     skipDuplicateMapOutputs: true,",
+				"     saveOrder: 1,",
+				"     errorHandlingOption: 'stopOnFirstError') ~> TargetDimensionInsert",
+				"alterRow1 sink(allowSchemaDrift: true,",
+				"     validateSchema: false,",
+				"     deletable:false,",
+				"     insertable:false,",
+				"     updateable:true,",
+				"     upsertable:false,",
+				"     keys:['Row_wid'],",
+				"     format: 'table',",
+				"     skipDuplicateMapInputs: true,",
+				"     skipDuplicateMapOutputs: true,",
+				"     saveOrder: 2,",
+				"     errorHandlingOption: 'stopOnFirstError') ~> sink1"
+			]
+		}
+	}
+}

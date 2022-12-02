@@ -1,0 +1,170 @@
+{
+	"name": "SWNEnergyConsumptionDF",
+	"properties": {
+		"type": "MappingDataFlow",
+		"typeProperties": {
+			"sources": [
+				{
+					"dataset": {
+						"referenceName": "SWNAzureSqlDb",
+						"type": "DatasetReference"
+					},
+					"name": "OnPremSQLServerSrc"
+				},
+				{
+					"dataset": {
+						"referenceName": "SWNAzureSqlDb",
+						"type": "DatasetReference"
+					},
+					"name": "WorldPopFromAzureSQLDB"
+				}
+			],
+			"sinks": [
+				{
+					"dataset": {
+						"referenceName": "SWNAzureSqlDb",
+						"type": "DatasetReference"
+					},
+					"name": "sinkToAzureSQLTable"
+				},
+				{
+					"dataset": {
+						"referenceName": "CSVDataset",
+						"type": "DatasetReference"
+					},
+					"name": "sinkToCSVFile"
+				}
+			],
+			"transformations": [
+				{
+					"name": "aggregate1"
+				},
+				{
+					"name": "derivedColumn1"
+				},
+				{
+					"name": "join1"
+				},
+				{
+					"name": "derivedColumn2"
+				},
+				{
+					"name": "alterRow1"
+				},
+				{
+					"name": "pivot1"
+				},
+				{
+					"name": "select1"
+				},
+				{
+					"name": "surrogateKey1"
+				}
+			],
+			"scriptLines": [
+				"parameters{",
+				"     TargetSchemaName as string ('target'),",
+				"     TargetTableName as string ('WC_WorldPopulation_D'),",
+				"     Run_id as string ('123')",
+				"}",
+				"source(output(",
+				"          Year as string,",
+				"          Fuel_ID as string,",
+				"          Fuel_Type as string,",
+				"          Region_ID as string,",
+				"          Region as string,",
+				"          Country_ID as string,",
+				"          Country as string,",
+				"          Consumption as string,",
+				"          Production as string,",
+				"          Trade as string,",
+				"          Is_delete as string,",
+				"          create_dt as string",
+				"     ),",
+				"     allowSchemaDrift: true,",
+				"     validateSchema: false,",
+				"     isolationLevel: 'READ_UNCOMMITTED',",
+				"     format: 'table') ~> OnPremSQLServerSrc",
+				"source(output(",
+				"          LKP_ROW_WID as integer,",
+				"          LKP_Year as short,",
+				"          LKP_Region as string,",
+				"          LKP_Country as string,",
+				"          LKP_Address_ID as string",
+				"     ),",
+				"     allowSchemaDrift: true,",
+				"     validateSchema: false,",
+				"     isolationLevel: 'READ_UNCOMMITTED',",
+				"     query: (concat('SELECT max(Row_wid) as LKP_ROW_WID, Year as  LKP_Year,Region as LKP_Region,Country as LKP_Country,Address_ID AS LKP_Address_ID FROM ', concat($TargetSchemaName,'.',$TargetTableName),' group by Year,Region,Country,Address_ID ')),",
+				"     format: 'query') ~> WorldPopFromAzureSQLDB",
+				"OnPremSQLServerSrc aggregate(groupBy(Region,",
+				"          Is_delete,",
+				"          Country_ID,",
+				"          Region_ID,",
+				"          Fuel_ID,",
+				"          Fuel_Type,",
+				"          Country,",
+				"          Year),",
+				"     Consumption = avg(toInteger(toString(byName('Consumption')))),",
+				"          Production = avg(toInteger(toString(byName('Production')))),",
+				"          Trade = avg(toInteger(toString(byName('Trade'))))) ~> aggregate1",
+				"aggregate1 derive(Year = toInteger(Year),",
+				"          Trade = iif(toInteger(Trade)<0,0,toInteger(Trade)),",
+				"          Integration_ID = concatWS('~',toString(byName('Year')),toString(byName('Country_ID')),toString(byName('Region_ID')),toString(byName('Fuel_ID'))),",
+				"          create_dt = currentTimestamp()) ~> derivedColumn1",
+				"derivedColumn1, WorldPopFromAzureSQLDB join(Region == LKP_Region",
+				"     && Year == LKP_Year",
+				"     && Country == LKP_Country,",
+				"     joinType:'left',",
+				"     matchType:'exact',",
+				"     ignoreSpaces: false,",
+				"     broadcast: 'auto')~> join1",
+				"join1 derive(NewFlag = iif(isNull(LKP_Address_ID),1,0),",
+				"          Population_wid = LKP_ROW_WID) ~> derivedColumn2",
+				"surrogateKey1 alterRow(deleteIf(toInteger(Is_delete)==1),",
+				"     upsertIf(true())) ~> alterRow1",
+				"select1 pivot(groupBy(Country,",
+				"          Region),",
+				"     pivotBy(Year),",
+				"     SumCon = sum(Consumption),",
+				"          AvgTr = avg(Trade),",
+				"     columnNaming: '$N$V',",
+				"     lateral: true) ~> pivot1",
+				"join1 select(mapColumn(",
+				"          Region,",
+				"          Country,",
+				"          Year,",
+				"          Consumption,",
+				"          Production,",
+				"          Trade,",
+				"          Integration_ID",
+				"     ),",
+				"     skipDuplicateMapInputs: true,",
+				"     skipDuplicateMapOutputs: true) ~> select1",
+				"derivedColumn2 keyGenerate(output(Row_wid as long),",
+				"     startAt: 1L,",
+				"     stepValue: 1L) ~> surrogateKey1",
+				"alterRow1 sink(allowSchemaDrift: true,",
+				"     validateSchema: false,",
+				"     deletable:true,",
+				"     insertable:true,",
+				"     updateable:false,",
+				"     upsertable:true,",
+				"     keys:['Integration_ID'],",
+				"     format: 'table',",
+				"     postSQLs:[(concat('UPDATE target.EnergyConsumption_D set Run_id= ',$Run_id))],",
+				"     skipDuplicateMapInputs: true,",
+				"     skipDuplicateMapOutputs: true,",
+				"     saveOrder: 1,",
+				"     errorHandlingOption: 'stopOnFirstError') ~> sinkToAzureSQLTable",
+				"pivot1 sink(allowSchemaDrift: true,",
+				"     validateSchema: false,",
+				"     partitionFileNames:['PivotRegionCountry.csv'],",
+				"     skipDuplicateMapInputs: true,",
+				"     skipDuplicateMapOutputs: true,",
+				"     saveOrder: 2,",
+				"     partitionBy('hash', 1)) ~> sinkToCSVFile"
+			]
+		}
+	}
+}

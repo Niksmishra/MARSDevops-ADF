@@ -1,0 +1,87 @@
+{
+	"name": "swn-hr-dataflow",
+	"properties": {
+		"folder": {
+			"name": "ADF_CONVERSION/DIM_CUSTOM"
+		},
+		"type": "MappingDataFlow",
+		"typeProperties": {
+			"sources": [
+				{
+					"dataset": {
+						"referenceName": "SWNAzureSqlDb",
+						"type": "DatasetReference"
+					},
+					"name": "SourceDimensionStage"
+				},
+				{
+					"dataset": {
+						"referenceName": "SWNAzureSqlDb",
+						"type": "DatasetReference"
+					},
+					"name": "LKPTGT"
+				},
+				{
+					"dataset": {
+						"referenceName": "SWNAzureSqlDb",
+						"type": "DatasetReference"
+					},
+					"name": "TgtLkpMaxRowWid"
+				}
+			],
+			"sinks": [
+				{
+					"dataset": {
+						"referenceName": "SWNAzureSqlDb",
+						"type": "DatasetReference"
+					},
+					"name": "TargetDimensionInsert"
+				},
+				{
+					"dataset": {
+						"referenceName": "SWNAzureSqlDb",
+						"type": "DatasetReference"
+					},
+					"name": "TargetDimensionUpdate"
+				}
+			],
+			"transformations": [
+				{
+					"name": "DerivedColumnDrift"
+				},
+				{
+					"name": "DerivedColumnNewFlag"
+				},
+				{
+					"name": "ConditionalSplit"
+				},
+				{
+					"name": "SurrogateKeyRowWid"
+				},
+				{
+					"name": "Join"
+				},
+				{
+					"name": "DerivedColumnInsKeys"
+				},
+				{
+					"name": "JoinLkpTarget"
+				},
+				{
+					"name": "DerivedColumnUpdKeys"
+				},
+				{
+					"name": "SelectUpdate"
+				},
+				{
+					"name": "AlterRowUpdate"
+				},
+				{
+					"name": "MapDrifted",
+					"description": "Creates an explicit mapping for each drifted column"
+				}
+			],
+			"script": "parameters{\n\tKeyCol as string,\n\tTargetSchemaName as string,\n\tTargetTableName as string,\n\tSqlViewName as string,\n\tViewSchemaName as string,\n\tW_INSERT_DT as string,\n\tETL_PROC_WID as integer\n}\nsource(allowSchemaDrift: true,\n\tvalidateSchema: false,\n\tinferDriftedColumnTypes: true,\n\tisolationLevel: 'READ_UNCOMMITTED',\n\tquery: (concat('SELECT * FROM ',concat($ViewSchemaName,'.',$SqlViewName))),\n\tformat: 'query') ~> SourceDimensionStage\nsource(output(\n\t\tLKP_ROW_WID as decimal(18,0),\n\t\tLKP_ROW_WID_SKEY as double,\n\t\tLKP_ROW_WID_SKEY_MAX as double,\n\t\tLKP_INTEGRATION_ID as string,\n\t\tLKP_CREATED_ON_DT as timestamp,\n\t\tLKP_DATASOURCE_NUM_ID as decimal(10,0)\n\t),\n\tallowSchemaDrift: true,\n\tvalidateSchema: false,\n\tisolationLevel: 'READ_UNCOMMITTED',\n\tquery: (concat('SELECT TGT.ROW_WID as LKP_ROW_WID,TGT.ROW_WID_SKEY as LKP_ROW_WID_SKEY,ISNULL(b.ROW_WID_SKEY_MAX,TGT.ROW_WID_SKEY) as LKP_ROW_WID_SKEY_MAX,TGT.INTEGRATION_ID as LKP_INTEGRATION_ID, TGT.CREATED_ON_DT as LKP_CREATED_ON_DT,TGT.DATASOURCE_NUM_ID As LKP_DATASOURCE_NUM_ID FROM ',concat($TargetSchemaName,'.',$TargetTableName,' TGT'),' LEFT JOIN (SELECT   integration_id,MAX (row_wid_skey) row_wid_skey_max FROM ',concat($TargetSchemaName,'.',$TargetTableName,' TGT'),' WHERE current_flg =\\'N\\'  GROUP BY integration_id) b  ON   (TGT.Integration_Id = b.Integration_Id) where TGT.current_flg = \\'Y\\'')),\n\tformat: 'query') ~> LKPTGT\nsource(output(\n\t\tCURRENT_ROW_WID as decimal(18,0)\n\t),\n\tallowSchemaDrift: true,\n\tvalidateSchema: false,\n\tisolationLevel: 'READ_UNCOMMITTED',\n\tquery: (concat('SELECT MAX(ROW_WID) AS CURRENT_ROW_WID FROM ',concat($TargetSchemaName,'.',$TargetTableName))),\n\tformat: 'query') ~> TgtLkpMaxRowWid\nSourceDimensionStage derive(each(match(instr(name,'INTEGRATION_ID')>0&&startsWith(name,'INTEGRATION_ID')&&endsWith(name,'INTEGRATION_ID')), 'D_INTEGRATION_ID' = toString($$)),\n\t\teach(match(instr(name,'DATASOURCE_NUM_ID')>0&&startsWith(name,'DATASOURCE_NUM_ID')&&endsWith(name,'DATASOURCE_NUM_ID')), 'D_DATASOURCE_NUM_ID' = toInteger($$)),\n\t\teach(match(instr(name,'D_CREATED_ON_DT')>0), 'M_CREATED_ON_DT' = toString($$)),\n\t\teach(match(instr(name,'D_UPDATED_ON_DT')>0), 'M_UPDATED_ON_DT' = toString($$))) ~> DerivedColumnDrift\nJoinLkpTarget derive(CREATED_ON_DT = iif(isNull(LKP_ROW_WID),iif(isNull(M_CREATED_ON_DT),toTimestamp($W_INSERT_DT, 'yyyy-MM-dd\\'T\\'HH:mm:ss'),toTimestamp(M_CREATED_ON_DT)),LKP_CREATED_ON_DT),\n\t\tNEW_FLG = iif(isNull(LKP_ROW_WID),'Y','N'),\n\t\tINSERT_DT = toTimestamp($W_INSERT_DT, 'yyyy-MM-dd\\'T\\'HH:mm:ss'),\n\t\tUPD_ON_DT = iif(isNull(M_UPDATED_ON_DT),toTimestamp($W_INSERT_DT, 'yyyy-MM-dd\\'T\\'HH:mm:ss'),toTimestamp(M_UPDATED_ON_DT)),\n\t\tEFF_TO_DT = iif(isNull(M_UPDATED_ON_DT),toTimestamp($W_INSERT_DT, 'yyyy-MM-dd\\'T\\'HH:mm:ss'),toTimestamp(M_UPDATED_ON_DT)),\n\t\tUPDATE_DT = toTimestamp($W_INSERT_DT, 'yyyy-MM-dd\\'T\\'HH:mm:ss'),\n\t\tETL_PROC_WID = $ETL_PROC_WID) ~> DerivedColumnNewFlag\nDerivedColumnNewFlag split(iif((NEW_FLG =='Y') || ((NEW_FLG =='N') ) ,true(),false()),\n\tiif((NEW_FLG =='N'),true(),false()),\n\tdisjoint: true) ~> ConditionalSplit@(InsertGroup, UpdateGroup, Default)\nConditionalSplit@InsertGroup keyGenerate(output(ROW_WID_SEQUENCE as long),\n\tstartAt: 1L,\n\tstepValue: 1L) ~> SurrogateKeyRowWid\nSurrogateKeyRowWid, TgtLkpMaxRowWid join(true(),\n\tjoinType:'cross',\n\tmatchType:'exact',\n\tignoreSpaces: false,\n\tbroadcast: 'auto')~> Join\nJoin derive(ROW_WID = ROW_WID_SEQUENCE + iif(isNull(CURRENT_ROW_WID),0,toInteger(CURRENT_ROW_WID)),\n\t\tEFFECTIVE_FROM_DT = iif(isNull(LKP_ROW_WID),iif(isNull(M_CREATED_ON_DT),toTimestamp($W_INSERT_DT, 'yyyy-MM-dd\\'T\\'HH:mm:ss'),toTimestamp(M_CREATED_ON_DT)),iif(isNull(M_UPDATED_ON_DT),INSERT_DT,toTimestamp(M_UPDATED_ON_DT))),\n\t\tEFFECTIVE_FROM_DATE = iif(isNull(LKP_ROW_WID),iif(isNull(M_CREATED_ON_DT),toTimestamp($W_INSERT_DT, 'yyyy-MM-dd\\'T\\'HH:mm:ss'),toTimestamp(M_CREATED_ON_DT)),iif(isNull(M_UPDATED_ON_DT),INSERT_DT,toTimestamp(M_UPDATED_ON_DT))),\n\t\tROW_WID_SKEY = iif(NEW_FLG == 'Y',ROW_WID_SEQUENCE + iif(isNull(CURRENT_ROW_WID),0,toInteger(CURRENT_ROW_WID)),floor(toInteger(LKP_ROW_WID_SKEY_MAX))),\n\t\tCURRENT_FLG = 'Y',\n\t\tUPDATED_ON_DT = UPD_ON_DT,\n\t\tW_INSERT_DT = INSERT_DT) ~> DerivedColumnInsKeys\nMapDrifted, LKPTGT join(rtrim(ltrim(D_INTEGRATION_ID)) == rtrim(ltrim(LKP_INTEGRATION_ID))\n\t&& D_DATASOURCE_NUM_ID == LKP_DATASOURCE_NUM_ID,\n\tjoinType:'left',\n\tmatchType:'exact',\n\tignoreSpaces: false,\n\tbroadcast: 'auto')~> JoinLkpTarget\nConditionalSplit@UpdateGroup derive(UPD_ROW_WID = LKP_ROW_WID,\n\t\tUPD_ROW_WID_SKEY = LKP_ROW_WID_SKEY_MAX +0.00001,\n\t\tCURRENT_FLG = 'N') ~> DerivedColumnUpdKeys\nDerivedColumnUpdKeys select(mapColumn(\n\t\tROW_WID = UPD_ROW_WID,\n\t\tROW_WID_SKEY = UPD_ROW_WID_SKEY,\n\t\tCURRENT_FLG,\n\t\tW_UPDATE_DT = UPDATE_DT,\n\t\tEFFECTIVE_TO_DT = EFF_TO_DT,\n\t\tEFFECTIVE_TO_DATE = EFF_TO_DT,\n\t\tETL_PROC_WID\n\t),\n\tskipDuplicateMapInputs: false,\n\tskipDuplicateMapOutputs: true) ~> SelectUpdate\nSelectUpdate alterRow(updateIf(true())) ~> AlterRowUpdate\nDerivedColumnDrift derive(D_INTEGRATION_ID = toString(byName('D_INTEGRATION_ID')),\n\t\tD_DATASOURCE_NUM_ID = toInteger(byName('D_DATASOURCE_NUM_ID')),\n\t\tM_CREATED_ON_DT = toString(byName('M_CREATED_ON_DT')),\n\t\tM_UPDATED_ON_DT = toString(byName('M_UPDATED_ON_DT'))) ~> MapDrifted\nDerivedColumnInsKeys sink(allowSchemaDrift: true,\n\tvalidateSchema: false,\n\tdeletable:false,\n\tinsertable:true,\n\tupdateable:false,\n\tupsertable:false,\n\tformat: 'table',\n\tskipDuplicateMapInputs: true,\n\tskipDuplicateMapOutputs: true,\n\tsaveOrder: 1,\n\terrorHandlingOption: 'stopOnFirstError',\n\tmapColumn(\n\t\teach(patternMatch(`.*[^_]$`))\n\t)) ~> TargetDimensionInsert\nAlterRowUpdate sink(allowSchemaDrift: true,\n\tvalidateSchema: false,\n\tdeletable:false,\n\tinsertable:false,\n\tupdateable:true,\n\tupsertable:false,\n\tkeys:[($KeyCol)],\n\tformat: 'table',\n\tskipDuplicateMapInputs: true,\n\tskipDuplicateMapOutputs: true,\n\tsaveOrder: 2,\n\terrorHandlingOption: 'stopOnFirstError',\n\tmapColumn(\n\t\teach(patternMatch(`.*[^_]$`))\n\t)) ~> TargetDimensionUpdate"
+		}
+	}
+}

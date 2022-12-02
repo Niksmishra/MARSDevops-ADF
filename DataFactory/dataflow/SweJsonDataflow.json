@@ -1,0 +1,78 @@
+{
+	"name": "SweJsonDataflow",
+	"properties": {
+		"type": "MappingDataFlow",
+		"typeProperties": {
+			"sources": [
+				{
+					"dataset": {
+						"referenceName": "GenericJsonDS",
+						"type": "DatasetReference"
+					},
+					"name": "JsonSource"
+				}
+			],
+			"sinks": [
+				{
+					"dataset": {
+						"referenceName": "CSVDataset",
+						"type": "DatasetReference"
+					},
+					"name": "sinktoCSV",
+					"description": "Sink to CSV File"
+				}
+			],
+			"transformations": [
+				{
+					"name": "flattenJsonFile",
+					"description": "JSON to tabular Format"
+				},
+				{
+					"name": "pivot"
+				},
+				{
+					"name": "fillterfutureYear",
+					"description": "Removing all future Year"
+				}
+			],
+			"scriptLines": [
+				"parameters{",
+				"     FileName as string",
+				"}",
+				"source(output(",
+				"          data as ({ID Nation} as string, {ID Year} as short, Nation as string, Population as integer, {Slug Nation} as string, Year as short)[],",
+				"          source as (annotations as (dataset_link as string, dataset_name as string, source_description as string, source_name as string, subtopic as string, table_id as string, topic as string), measures as string[], name as string, substitutions as string[])[]",
+				"     ),",
+				"     allowSchemaDrift: true,",
+				"     validateSchema: false,",
+				"     inferDriftedColumnTypes: true,",
+				"     ignoreNoFilesFound: false,",
+				"     documentForm: 'documentPerLine') ~> JsonSource",
+				"JsonSource foldDown(unroll(data),",
+				"     mapColumn(",
+				"          NationID = data.{ID Nation},",
+				"          YearID = data.{ID Year},",
+				"          Nation = data.Nation,",
+				"          Population = data.Population,",
+				"          SlugNation = data.{Slug Nation},",
+				"          Year = data.Year",
+				"     ),",
+				"     skipDuplicateMapInputs: true,",
+				"     skipDuplicateMapOutputs: true) ~> flattenJsonFile",
+				"fillterfutureYear pivot(groupBy(Nation,",
+				"          NationID),",
+				"     pivotBy(Year),",
+				"     Year = avg(Population),",
+				"     columnNaming: '$V$N',",
+				"     lateral: true) ~> pivot",
+				"flattenJsonFile filter(lesserOrEqual(Year,year(currentDate()))) ~> fillterfutureYear",
+				"pivot sink(allowSchemaDrift: true,",
+				"     validateSchema: false,",
+				"     partitionFileNames:[($FileName)],",
+				"     skipDuplicateMapInputs: true,",
+				"     skipDuplicateMapOutputs: true,",
+				"     partitionBy('hash', 1)) ~> sinktoCSV"
+			]
+		}
+	}
+}
