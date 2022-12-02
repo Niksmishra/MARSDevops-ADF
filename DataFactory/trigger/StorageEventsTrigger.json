@@ -1,0 +1,24 @@
+{
+	"name": "StorageEventsTrigger",
+	"properties": {
+		"annotations": [],
+		"runtimeState": "Started",
+		"pipelines": [
+			{
+				"pipelineReference": {
+					"referenceName": "StorageEventsTrigger",
+					"type": "PipelineReference"
+				}
+			}
+		],
+		"type": "BlobEventsTrigger",
+		"typeProperties": {
+			"blobPathBeginsWith": "/swn-hr/blobs/RawFiles/StorageEvents",
+			"ignoreEmptyBlobs": true,
+			"scope": "/subscriptions/a25f9354-7b44-4049-b50c-46a0f1e4bdb7/resourceGroups/SEBWS045_310169/providers/Microsoft.Storage/storageAccounts/swnstorageaccount",
+			"events": [
+				"Microsoft.Storage.BlobCreated"
+			]
+		}
+	}
+}

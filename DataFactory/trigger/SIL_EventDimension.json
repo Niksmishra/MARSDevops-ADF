@@ -1,0 +1,36 @@
+{
+	"name": "SIL_EventDimension",
+	"properties": {
+		"annotations": [],
+		"runtimeState": "Started",
+		"pipelines": [
+			{
+				"pipelineReference": {
+					"referenceName": "SIL_ProjectRevenueLine_Fact",
+					"type": "PipelineReference"
+				}
+			},
+			{
+				"pipelineReference": {
+					"referenceName": "SIL_CustomerAccountDimen_SCDUpdate",
+					"type": "PipelineReference"
+				}
+			},
+			{
+				"pipelineReference": {
+					"referenceName": "SIL_CustomerAccountDimen",
+					"type": "PipelineReference"
+				}
+			}
+		],
+		"type": "CustomEventsTrigger",
+		"typeProperties": {
+			"subjectEndsWith": "",
+			"subjectBeginsWith": "",
+			"scope": "/subscriptions/a25f9354-7b44-4049-b50c-46a0f1e4bdb7/resourceGroups/SEBWS045_310169/providers/Microsoft.EventGrid/topics/EventGrid1New",
+			"events": [
+				"SIL_EventDimension"
+			]
+		}
+	}
+}
