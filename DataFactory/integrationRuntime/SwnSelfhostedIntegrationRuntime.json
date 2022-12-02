@@ -1,0 +1,6 @@
+{
+	"name": "SwnSelfhostedIntegrationRuntime",
+	"properties": {
+		"type": "SelfHosted"
+	}
+}
