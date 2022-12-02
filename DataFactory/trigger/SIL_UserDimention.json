@@ -21,7 +21,7 @@
 		"typeProperties": {
 			"subjectEndsWith": "",
 			"subjectBeginsWith": "",
-			"scope": "/subscriptions/a25f9354-7b44-4049-b50c-46a0f1e4bdb7/resourceGroups/SEBWS045_310169/providers/Microsoft.EventGrid/topics/EventGrid1New",
+			"scope": "/subscriptions/80bf5c55-792a-4719-a6ec-36e88ffad5b1/resourceGroups/Mars_GP/providers/Microsoft.EventGrid/topics/EventGrid1New",
 			"events": [
 				"SIL_UserDimention"
 			]
