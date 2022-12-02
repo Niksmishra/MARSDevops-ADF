@@ -1,7 +1,7 @@
 # Set Global Variable as required
 
-$resourceGroupName = "Mars_GP"
-$dataFactoryName = "MarsADF-Dev2"
+$resourceGroupName = "Mars_DemoRG"
+$dataFactoryName = "MarsADF-Dev698"
 $region = "westeurope"
 
 #SPN for deploying ADF:
