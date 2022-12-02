@@ -48,6 +48,6 @@ Write-Host $scriptPath
 #$opt.Includes.Add()
 #$opt.Excludes.Add("pipeline.SHIR_Test","")
 #$opt.DoNotDeleteExcludedObjects = $false
-$opt.StopStartTriggers = $true
+#$opt.StopStartTriggers = $true
 
 Publish-AdfV2FromJson -RootFolder "$scriptPath" -ResourceGroupName "$resourceGroupName" -DataFactoryName "$dataFactoryName" -Location "$region" -Option $opt
