@@ -1,0 +1,9 @@
+{
+	"name": "SWE-Dev-ADF",
+	"location": "eastus",
+	"identity": {
+		"type": "SystemAssigned",
+		"principalId": "2e39935d-6821-43c2-b60d-0ffe81e41ee5",
+		"tenantId": "950bde67-19db-467b-9a41-f80b7cf24ecb"
+	}
+}
