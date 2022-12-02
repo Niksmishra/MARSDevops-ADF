@@ -1,7 +1,7 @@
 # Set Global Variable as required
 
 $resourceGroupName = "Mars_GP"
-$dataFactoryName = "MarsADF-Dev1"
+$dataFactoryName = "MarsADF-Dev2"
 $region = "westeurope"
 
 #SPN for deploying ADF:
@@ -37,17 +37,17 @@ $deploymentFilePath = $scriptPath
 
 Write-Host $scriptPath
 #$yesNo = Write-Host -Prompt -Force "$scriptPath Y/N:"
-Write-Host -RootFolder "$scriptPath"
-$opt = New-AdfPublishOption
+#Write-Host -RootFolder "$scriptPath"
+#$opt = New-AdfPublishOption
 
-$opt.CreateNewInstance = $true
-$opt.DeleteNotInSource = $false
+#$opt.CreateNewInstance = $true
+#$opt.DeleteNotInSource = $false
 #$opt.Excludes.Add("LinkedServices","")
 #$opt.Excludes.Add("linkedService.*","")
 #$opt.Excludes.Add("dataset.*","")
 #$opt.Includes.Add()
-$opt.Excludes.Add("pipeline.SHIR_Test","")
+#$opt.Excludes.Add("pipeline.SHIR_Test","")
 #$opt.DoNotDeleteExcludedObjects = $false
 $opt.StopStartTriggers = $true
 
-#Publish-AdfV2FromJson -RootFolder "$scriptPath" -ResourceGroupName "$resourceGroupName" -DataFactoryName "$dataFactoryName" -Location "$region" -Option $opt
+Publish-AdfV2FromJson -RootFolder "$scriptPath" -ResourceGroupName "$resourceGroupName" -DataFactoryName "$dataFactoryName" -Location "$region" -Option $opt
