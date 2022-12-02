@@ -1,0 +1,16 @@
+{
+	"name": "GenericDevOracle",
+	"type": "Microsoft.DataFactory/factories/linkedservices",
+	"properties": {
+		"annotations": [],
+		"type": "Oracle",
+		"typeProperties": {
+			"connectionString": "host=DBDEVSRVNEW;port=1521;servicename=xepdb1;user id=migration_test",
+			"encryptedCredential": "eyJDcmVkZW50aWFsSWQiOiIwNTE3OTc3Yy1mNDRlLTQ5NjUtOWZjMi05MGQ1ODdiZjVmZDAiLCJWZXJzaW9uIjoiMi4wIiwiQ2xhc3NUeXBlIjoiTWljcm9zb2Z0LkRhdGFQcm94eS5Db3JlLkludGVyU2VydmljZURhdGFDb250cmFjdC5DcmVkZW50aWFsU1UwNkNZMTQifQ=="
+		},
+		"connectVia": {
+			"referenceName": "SwnSelfhostedIntegrationRuntime",
+			"type": "IntegrationRuntimeReference"
+		}
+	}
+}
