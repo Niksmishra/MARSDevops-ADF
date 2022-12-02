@@ -1,0 +1,45 @@
+{
+	"name": "CSVDataset",
+	"properties": {
+		"linkedServiceName": {
+			"referenceName": "swnnblob",
+			"type": "LinkedServiceReference"
+		},
+		"parameters": {
+			"ContainerPath": {
+				"type": "string"
+			},
+			"DirectoryPath": {
+				"type": "string"
+			},
+			"FilePath": {
+				"type": "string"
+			}
+		},
+		"annotations": [],
+		"type": "DelimitedText",
+		"typeProperties": {
+			"location": {
+				"type": "AzureBlobStorageLocation",
+				"fileName": {
+					"value": "@dataset().FilePath",
+					"type": "Expression"
+				},
+				"folderPath": {
+					"value": "@dataset().DirectoryPath",
+					"type": "Expression"
+				},
+				"container": {
+					"value": "@dataset().ContainerPath",
+					"type": "Expression"
+				}
+			},
+			"columnDelimiter": ",",
+			"escapeChar": "\\",
+			"firstRowAsHeader": true,
+			"quoteChar": "\""
+		},
+		"schema": []
+	},
+	"type": "Microsoft.DataFactory/factories/datasets"
+}

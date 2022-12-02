@@ -1,0 +1,24 @@
+{
+	"name": "GenericRestAPI",
+	"properties": {
+		"linkedServiceName": {
+			"referenceName": "GenericRestLinkedService",
+			"type": "LinkedServiceReference",
+			"parameters": {
+				"APIPath": {
+					"value": "@dataset().APIPath",
+					"type": "Expression"
+				}
+			}
+		},
+		"parameters": {
+			"APIPath": {
+				"type": "string"
+			}
+		},
+		"annotations": [],
+		"type": "RestResource",
+		"schema": []
+	},
+	"type": "Microsoft.DataFactory/factories/datasets"
+}

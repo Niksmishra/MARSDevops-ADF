@@ -1,0 +1,17 @@
+{
+	"name": "GenericOracle",
+	"properties": {
+		"linkedServiceName": {
+			"referenceName": "GenericDevOracle",
+			"type": "LinkedServiceReference"
+		},
+		"annotations": [],
+		"type": "OracleTable",
+		"schema": [],
+		"typeProperties": {
+			"schema": "migration_test2",
+			"table": "SHUBHAMSCHEMA"
+		}
+	},
+	"type": "Microsoft.DataFactory/factories/datasets"
+}
