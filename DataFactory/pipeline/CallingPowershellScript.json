@@ -1,0 +1,200 @@
+{
+	"name": "CallingPowershellScript",
+	"properties": {
+		"activities": [
+			{
+				"name": "Custom for calling Powershell script",
+				"type": "Custom",
+				"dependsOn": [],
+				"policy": {
+					"timeout": "0.12:00:00",
+					"retry": 0,
+					"retryIntervalInSeconds": 30,
+					"secureOutput": false,
+					"secureInput": false
+				},
+				"userProperties": [],
+				"typeProperties": {
+					"command": "powershell.exe Powershellscript2.ps1",
+					"resourceLinkedService": {
+						"referenceName": "BlobStorageForBatchAcc",
+						"type": "LinkedServiceReference"
+					},
+					"folderPath": "swn-hr/RawFiles/PowershellScript",
+					"referenceObjects": {
+						"linkedServices": [],
+						"datasets": []
+					}
+				},
+				"linkedServiceName": {
+					"referenceName": "GenericAzureBatch",
+					"type": "LinkedServiceReference"
+				}
+			},
+			{
+				"name": "Fault and logging",
+				"type": "Copy",
+				"dependsOn": [
+					{
+						"activity": "Custom for calling Powershell script",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					}
+				],
+				"policy": {
+					"timeout": "0.12:00:00",
+					"retry": 0,
+					"retryIntervalInSeconds": 30,
+					"secureOutput": false,
+					"secureInput": false
+				},
+				"userProperties": [],
+				"typeProperties": {
+					"source": {
+						"type": "JsonSource",
+						"storeSettings": {
+							"type": "AzureBlobStorageReadSettings",
+							"recursive": true,
+							"enablePartitionDiscovery": false
+						},
+						"formatSettings": {
+							"type": "JsonReadSettings"
+						}
+					},
+					"sink": {
+						"type": "AzureSqlSink",
+						"preCopyScript": "truncate table [staging].[EnergyConsumption_L];",
+						"writeBehavior": "insert",
+						"sqlWriterUseTableLock": true,
+						"disableMetricsCollection": false
+					},
+					"enableStaging": false,
+					"enableSkipIncompatibleRow": true,
+					"logSettings": {
+						"enableCopyActivityLog": true,
+						"copyActivityLogSettings": {
+							"logLevel": "Info",
+							"enableReliableLogging": false
+						},
+						"logLocationSettings": {
+							"linkedServiceName": {
+								"referenceName": "LinkedService_AzureBlobStorage",
+								"type": "LinkedServiceReference"
+							},
+							"path": "swn-hr/logging/"
+						}
+					},
+					"translator": {
+						"type": "TabularTranslator",
+						"mappings": [
+							{
+								"source": {
+									"path": "$['Year']"
+								},
+								"sink": {
+									"name": "year",
+									"type": "String"
+								}
+							},
+							{
+								"source": {
+									"path": "$['Fuel_ID']"
+								},
+								"sink": {
+									"name": "Fuel_ID",
+									"type": "Int32"
+								}
+							},
+							{
+								"source": {
+									"path": "$['Fuel_Type']"
+								},
+								"sink": {
+									"name": "Fuel_Type",
+									"type": "String"
+								}
+							},
+							{
+								"source": {
+									"path": "$['Region_ID']"
+								},
+								"sink": {
+									"name": "Region_ID",
+									"type": "String"
+								}
+							},
+							{
+								"source": {
+									"path": "$['Country_ID']"
+								},
+								"sink": {
+									"name": "Country_id",
+									"type": "String"
+								}
+							},
+							{
+								"source": {
+									"path": "$['Country']"
+								},
+								"sink": {
+									"name": "Country",
+									"type": "String"
+								}
+							},
+							{
+								"source": {
+									"path": "$['Consumption']"
+								},
+								"sink": {
+									"name": "Consumption",
+									"type": "String"
+								}
+							},
+							{
+								"source": {
+									"path": "$['Production']"
+								},
+								"sink": {
+									"name": "Production",
+									"type": "String"
+								}
+							},
+							{
+								"source": {
+									"path": "$['Trade']"
+								},
+								"sink": {
+									"name": "Trade",
+									"type": "Decimal"
+								}
+							}
+						]
+					}
+				},
+				"inputs": [
+					{
+						"referenceName": "GenericJsonDS",
+						"type": "DatasetReference",
+						"parameters": {
+							"Container": "swn-hr",
+							"Directory": "RawFiles",
+							"JsonFileName": "Energy_Consumption_Production.json"
+						}
+					}
+				],
+				"outputs": [
+					{
+						"referenceName": "SWNAzureSqlDb",
+						"type": "DatasetReference",
+						"parameters": {
+							"TableName": "EnergyConsumption_L",
+							"SchemaName": "staging"
+						}
+					}
+				]
+			}
+		],
+		"annotations": []
+	}
+}

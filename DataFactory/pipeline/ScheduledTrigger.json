@@ -1,0 +1,44 @@
+{
+	"name": "ScheduledTrigger",
+	"properties": {
+		"activities": [
+			{
+				"name": "DemoDataflow",
+				"type": "ExecuteDataFlow",
+				"dependsOn": [],
+				"policy": {
+					"timeout": "0.12:00:00",
+					"retry": 0,
+					"retryIntervalInSeconds": 30,
+					"secureOutput": false,
+					"secureInput": false
+				},
+				"userProperties": [],
+				"typeProperties": {
+					"dataflow": {
+						"referenceName": "DemoDataflow",
+						"type": "DataFlowReference"
+					},
+					"compute": {
+						"coreCount": 8,
+						"computeType": "General"
+					},
+					"traceLevel": "Fine"
+				}
+			}
+		],
+		"variables": {
+			"Error": {
+				"type": "String"
+			}
+		},
+		"folder": {
+			"name": "Triggers"
+		},
+		"annotations": [
+			"Triggers"
+		],
+		"lastPublishTime": "2022-10-28T12:39:28Z"
+	},
+	"type": "Microsoft.DataFactory/factories/pipelines"
+}

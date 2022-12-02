@@ -1,0 +1,436 @@
+{
+	"name": "Swn_Csv_World_Population",
+	"properties": {
+		"activities": [
+			{
+				"name": "Lookup ConfigTable",
+				"description": "Lookup ConfigTable for file and table details",
+				"type": "Lookup",
+				"dependsOn": [],
+				"policy": {
+					"timeout": "0.12:00:00",
+					"retry": 0,
+					"retryIntervalInSeconds": 30,
+					"secureOutput": false,
+					"secureInput": false
+				},
+				"userProperties": [],
+				"typeProperties": {
+					"source": {
+						"type": "AzureSqlSource",
+						"sqlReaderQuery": {
+							"value": "Select [FileName], \nFileType ,\nLastProcessedFileDate, \nPipelineName,\nProcessFlg ,\nStagingSchema, \nStagingTable,\nTargetTable ,\nTargetSchema,\nContainer  ,\nDirectoryPath\nFROM config.ConfigTable\nwhere PipelineName='@{pipeline().Pipeline}'",
+							"type": "Expression"
+						},
+						"queryTimeout": "02:00:00",
+						"partitionOption": "None"
+					},
+					"dataset": {
+						"referenceName": "SWNAzureSqlDb",
+						"type": "DatasetReference",
+						"parameters": {
+							"TableName": "n\\a",
+							"SchemaName": "n\\a"
+						}
+					},
+					"firstRowOnly": false
+				}
+			},
+			{
+				"name": "ForEachFileInConfigTable",
+				"description": "We are fetching files detail according to the Pipeline Name",
+				"type": "ForEach",
+				"dependsOn": [
+					{
+						"activity": "Lookup ConfigTable",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					}
+				],
+				"userProperties": [],
+				"typeProperties": {
+					"items": {
+						"value": "@activity('Lookup ConfigTable').output.value",
+						"type": "Expression"
+					},
+					"isSequential": true,
+					"activities": [
+						{
+							"name": "Switch according to file type",
+							"type": "Switch",
+							"dependsOn": [],
+							"userProperties": [],
+							"typeProperties": {
+								"on": {
+									"value": "@item().FileType",
+									"type": "Expression"
+								},
+								"cases": [
+									{
+										"value": "CSV",
+										"activities": [
+											{
+												"name": "Copy data to staging table",
+												"description": "CSV file data to staging table in Azure SQL DB",
+												"type": "Copy",
+												"dependsOn": [],
+												"policy": {
+													"timeout": "0.12:00:00",
+													"retry": 0,
+													"retryIntervalInSeconds": 30,
+													"secureOutput": false,
+													"secureInput": false
+												},
+												"userProperties": [],
+												"typeProperties": {
+													"source": {
+														"type": "DelimitedTextSource",
+														"storeSettings": {
+															"type": "AzureBlobStorageReadSettings",
+															"recursive": true,
+															"enablePartitionDiscovery": false
+														},
+														"formatSettings": {
+															"type": "DelimitedTextReadSettings"
+														}
+													},
+													"sink": {
+														"type": "AzureSqlSink",
+														"preCopyScript": {
+															"value": "@{concat('Truncate table ', activity('Lookup ConfigTable').output.value[0].StagingSchema,'.',activity('Lookup ConfigTable').output.value[0].StagingTable)}",
+															"type": "Expression"
+														},
+														"writeBehavior": "insert",
+														"sqlWriterUseTableLock": false,
+														"disableMetricsCollection": false
+													},
+													"enableStaging": false,
+													"translator": {
+														"type": "TabularTranslator",
+														"typeConversion": true,
+														"typeConversionSettings": {
+															"allowDataTruncation": true,
+															"treatBooleanAsNumber": false
+														}
+													}
+												},
+												"inputs": [
+													{
+														"referenceName": "CSVDataset",
+														"type": "DatasetReference",
+														"parameters": {
+															"ContainerPath": {
+																"value": "@activity('Lookup ConfigTable').output.value[0].Container",
+																"type": "Expression"
+															},
+															"DirectoryPath": {
+																"value": "@activity('Lookup ConfigTable').output.value[0].DirectoryPath",
+																"type": "Expression"
+															},
+															"FilePath": {
+																"value": "@activity('Lookup ConfigTable').output.value[0].FileName",
+																"type": "Expression"
+															}
+														}
+													}
+												],
+												"outputs": [
+													{
+														"referenceName": "SWNAzureSqlDb",
+														"type": "DatasetReference",
+														"parameters": {
+															"TableName": {
+																"value": "@activity('Lookup ConfigTable').output.value[0].StagingTable",
+																"type": "Expression"
+															},
+															"SchemaName": {
+																"value": "@activity('Lookup ConfigTable').output.value[0].StagingSchema",
+																"type": "Expression"
+															}
+														}
+													}
+												]
+											}
+										]
+									},
+									{
+										"value": "xlsx",
+										"activities": [
+											{
+												"name": "Copy data1",
+												"type": "Copy",
+												"dependsOn": [],
+												"policy": {
+													"timeout": "0.12:00:00",
+													"retry": 0,
+													"retryIntervalInSeconds": 30,
+													"secureOutput": false,
+													"secureInput": false
+												},
+												"userProperties": [],
+												"typeProperties": {
+													"source": {
+														"type": "ExcelSource",
+														"storeSettings": {
+															"type": "AzureBlobStorageReadSettings",
+															"recursive": true,
+															"enablePartitionDiscovery": false
+														}
+													},
+													"sink": {
+														"type": "AzureSqlSink",
+														"preCopyScript": {
+															"value": "@{concat('Truncate table ', activity('Lookup ConfigTable').output.value[1].StagingSchema,'.',activity('Lookup ConfigTable').output.value[1].StagingTable)}",
+															"type": "Expression"
+														},
+														"writeBehavior": "insert",
+														"sqlWriterUseTableLock": false,
+														"disableMetricsCollection": false
+													},
+													"enableStaging": false,
+													"translator": {
+														"type": "TabularTranslator",
+														"mappings": [
+															{
+																"source": {
+																	"ordinal": 1
+																},
+																"sink": {
+																	"name": "Year",
+																	"type": "Int16",
+																	"physicalType": "smallint"
+																}
+															},
+															{
+																"source": {
+																	"ordinal": 2
+																},
+																"sink": {
+																	"name": "Region_ID",
+																	"type": "Int32",
+																	"physicalType": "int"
+																}
+															},
+															{
+																"source": {
+																	"ordinal": 3
+																},
+																"sink": {
+																	"name": "Region",
+																	"type": "String",
+																	"physicalType": "varchar"
+																}
+															},
+															{
+																"source": {
+																	"ordinal": 4
+																},
+																"sink": {
+																	"name": "Country_ID",
+																	"type": "Int16",
+																	"physicalType": "smallint"
+																}
+															},
+															{
+																"source": {
+																	"ordinal": 5
+																},
+																"sink": {
+																	"name": "Country",
+																	"type": "String",
+																	"physicalType": "varchar"
+																}
+															},
+															{
+																"source": {
+																	"ordinal": 6
+																},
+																"sink": {
+																	"name": "Population",
+																	"type": "Int64",
+																	"physicalType": "bigint"
+																}
+															}
+														],
+														"typeConversion": true,
+														"typeConversionSettings": {
+															"allowDataTruncation": true,
+															"treatBooleanAsNumber": false
+														}
+													}
+												},
+												"inputs": [
+													{
+														"referenceName": "GenericExcelDS",
+														"type": "DatasetReference",
+														"parameters": {
+															"Container": {
+																"value": "@activity('Lookup ConfigTable').output.value[0].Container",
+																"type": "Expression"
+															},
+															"Directory": {
+																"value": "@activity('Lookup ConfigTable').output.value[0].DirectoryPath",
+																"type": "Expression"
+															},
+															"ExcelFile": {
+																"value": "@activity('Lookup ConfigTable').output.value[1].FileName",
+																"type": "Expression"
+															},
+															"Worksheet": "Sheet1"
+														}
+													}
+												],
+												"outputs": [
+													{
+														"referenceName": "SWNAzureSqlDb",
+														"type": "DatasetReference",
+														"parameters": {
+															"TableName": {
+																"value": "@activity('Lookup ConfigTable').output.value[1].StagingTable",
+																"type": "Expression"
+															},
+															"SchemaName": {
+																"value": "@activity('Lookup ConfigTable').output.value[1].StagingSchema",
+																"type": "Expression"
+															}
+														}
+													}
+												]
+											}
+										]
+									}
+								],
+								"defaultActivities": [
+									{
+										"name": "Wait1",
+										"type": "Wait",
+										"dependsOn": [],
+										"userProperties": [],
+										"typeProperties": {
+											"waitTimeInSeconds": 1
+										}
+									}
+								]
+							}
+						}
+					]
+				}
+			},
+			{
+				"name": "WorldPopulationDF",
+				"type": "ExecuteDataFlow",
+				"dependsOn": [
+					{
+						"activity": "ForEachFileInConfigTable",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					}
+				],
+				"policy": {
+					"timeout": "0.12:00:00",
+					"retry": 0,
+					"retryIntervalInSeconds": 30,
+					"secureOutput": false,
+					"secureInput": false
+				},
+				"userProperties": [],
+				"typeProperties": {
+					"dataflow": {
+						"referenceName": "SweFiletype2DF",
+						"type": "DataFlowReference",
+						"parameters": {
+							"TargetSchemaName": {
+								"value": "'@{activity('Lookup ConfigTable').output.value[0].TargetSchema}'",
+								"type": "Expression"
+							},
+							"TargetTableName": {
+								"value": "'@{activity('Lookup ConfigTable').output.value[0].TargetTable}'",
+								"type": "Expression"
+							},
+							"W_INSERT_DT": {
+								"value": "'@{pipeline().TriggerTime}'",
+								"type": "Expression"
+							},
+							"KeyCol": {
+								"value": "'@{'Row_wid'}'",
+								"type": "Expression"
+							}
+						},
+						"datasetParameters": {
+							"CSVStagingTable": {
+								"TableName": {
+									"value": "@activity('Lookup ConfigTable').output.value[0].StagingTable",
+									"type": "Expression"
+								},
+								"SchemaName": {
+									"value": "@activity('Lookup ConfigTable').output.value[0].StagingSchema",
+									"type": "Expression"
+								}
+							},
+							"ExcelStagingTable": {
+								"TableName": {
+									"value": "@activity('Lookup ConfigTable').output.value[1].StagingTable",
+									"type": "Expression"
+								},
+								"SchemaName": {
+									"value": "@activity('Lookup ConfigTable').output.value[0].StagingSchema",
+									"type": "Expression"
+								}
+							},
+							"LKPTargetTable": {
+								"TableName": {
+									"value": "@activity('Lookup ConfigTable').output.value[0].TargetTable",
+									"type": "Expression"
+								},
+								"SchemaName": {
+									"value": "@activity('Lookup ConfigTable').output.value[0].TargetSchema",
+									"type": "Expression"
+								}
+							},
+							"MaxWidinTarget": {
+								"TableName": {
+									"value": "@activity('Lookup ConfigTable').output.value[0].TargetTable",
+									"type": "Expression"
+								},
+								"SchemaName": {
+									"value": "@activity('Lookup ConfigTable').output.value[0].TargetSchema",
+									"type": "Expression"
+								}
+							},
+							"TargetDimensionInsert": {
+								"TableName": {
+									"value": "@activity('Lookup ConfigTable').output.value[0].TargetTable",
+									"type": "Expression"
+								},
+								"SchemaName": {
+									"value": "@activity('Lookup ConfigTable').output.value[0].TargetSchema",
+									"type": "Expression"
+								}
+							},
+							"sink1": {
+								"TableName": {
+									"value": "@activity('Lookup ConfigTable').output.value[0].TargetTable",
+									"type": "Expression"
+								},
+								"SchemaName": {
+									"value": "@activity('Lookup ConfigTable').output.value[0].TargetSchema",
+									"type": "Expression"
+								}
+							}
+						}
+					},
+					"compute": {
+						"coreCount": 8,
+						"computeType": "General"
+					},
+					"traceLevel": "Fine"
+				}
+			}
+		],
+		"annotations": [],
+		"lastPublishTime": "2022-10-26T20:57:53Z"
+	},
+	"type": "Microsoft.DataFactory/factories/pipelines"
+}

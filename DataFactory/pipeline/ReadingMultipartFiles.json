@@ -1,0 +1,352 @@
+{
+	"name": "ReadingMultipartFiles",
+	"properties": {
+		"activities": [
+			{
+				"name": "LookupMasterFileData",
+				"type": "Lookup",
+				"dependsOn": [],
+				"policy": {
+					"timeout": "0.12:00:00",
+					"retry": 0,
+					"retryIntervalInSeconds": 30,
+					"secureOutput": false,
+					"secureInput": false
+				},
+				"userProperties": [],
+				"typeProperties": {
+					"source": {
+						"type": "DelimitedTextSource",
+						"storeSettings": {
+							"type": "AzureBlobStorageReadSettings",
+							"recursive": true,
+							"enablePartitionDiscovery": false
+						},
+						"formatSettings": {
+							"type": "DelimitedTextReadSettings"
+						}
+					},
+					"dataset": {
+						"referenceName": "CSVDataset",
+						"type": "DatasetReference",
+						"parameters": {
+							"ContainerPath": {
+								"value": "@pipeline().parameters.ContainerPath",
+								"type": "Expression"
+							},
+							"DirectoryPath": {
+								"value": "@pipeline().parameters.DirectoryPath",
+								"type": "Expression"
+							},
+							"FilePath": {
+								"value": "@pipeline().parameters.MasterFile",
+								"type": "Expression"
+							}
+						}
+					},
+					"firstRowOnly": false
+				}
+			},
+			{
+				"name": "LoopInMasterFileData",
+				"description": "Check file exist, id exist copy to table otherwise make an entry in Audit table.",
+				"type": "ForEach",
+				"dependsOn": [
+					{
+						"activity": "LookupMasterFileData",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					}
+				],
+				"userProperties": [],
+				"typeProperties": {
+					"items": {
+						"value": "@activity('LookupMasterFileData').output.value",
+						"type": "Expression"
+					},
+					"isSequential": true,
+					"activities": [
+						{
+							"name": "Check if Files Are At Location",
+							"type": "GetMetadata",
+							"dependsOn": [],
+							"policy": {
+								"timeout": "0.12:00:00",
+								"retry": 0,
+								"retryIntervalInSeconds": 30,
+								"secureOutput": false,
+								"secureInput": false
+							},
+							"userProperties": [],
+							"typeProperties": {
+								"dataset": {
+									"referenceName": "CSVDataset",
+									"type": "DatasetReference",
+									"parameters": {
+										"ContainerPath": {
+											"value": "@pipeline().parameters.ContainerPath",
+											"type": "Expression"
+										},
+										"DirectoryPath": {
+											"value": "@pipeline().parameters.DirectoryPath",
+											"type": "Expression"
+										},
+										"FilePath": {
+											"value": "@item().FileName",
+											"type": "Expression"
+										}
+									}
+								},
+								"fieldList": [
+									"exists"
+								],
+								"storeSettings": {
+									"type": "AzureBlobStorageReadSettings",
+									"recursive": true,
+									"enablePartitionDiscovery": false
+								},
+								"formatSettings": {
+									"type": "DelimitedTextReadSettings"
+								}
+							}
+						},
+						{
+							"name": "If Condition1",
+							"type": "IfCondition",
+							"dependsOn": [
+								{
+									"activity": "Check if Files Are At Location",
+									"dependencyConditions": [
+										"Succeeded"
+									]
+								}
+							],
+							"userProperties": [],
+							"typeProperties": {
+								"expression": {
+									"value": "@activity('Check if Files Are At Location').output.exists",
+									"type": "Expression"
+								},
+								"ifTrueActivities": [
+									{
+										"name": "Copy data to singletable",
+										"type": "Copy",
+										"dependsOn": [],
+										"policy": {
+											"timeout": "0.12:00:00",
+											"retry": 0,
+											"retryIntervalInSeconds": 30,
+											"secureOutput": false,
+											"secureInput": false
+										},
+										"userProperties": [],
+										"typeProperties": {
+											"source": {
+												"type": "DelimitedTextSource",
+												"storeSettings": {
+													"type": "AzureBlobStorageReadSettings",
+													"recursive": true,
+													"enablePartitionDiscovery": false
+												},
+												"formatSettings": {
+													"type": "DelimitedTextReadSettings"
+												}
+											},
+											"sink": {
+												"type": "AzureSqlSink",
+												"writeBehavior": "insert",
+												"sqlWriterUseTableLock": false,
+												"tableOption": "autoCreate",
+												"disableMetricsCollection": false
+											},
+											"enableStaging": false,
+											"translator": {
+												"type": "TabularTranslator",
+												"typeConversion": true,
+												"typeConversionSettings": {
+													"allowDataTruncation": true,
+													"treatBooleanAsNumber": false
+												}
+											}
+										},
+										"inputs": [
+											{
+												"referenceName": "CSVDataset",
+												"type": "DatasetReference",
+												"parameters": {
+													"ContainerPath": {
+														"value": "@pipeline().parameters.ContainerPath",
+														"type": "Expression"
+													},
+													"DirectoryPath": {
+														"value": "@pipeline().parameters.DirectoryPath",
+														"type": "Expression"
+													},
+													"FilePath": {
+														"value": "@item().FileName",
+														"type": "Expression"
+													}
+												}
+											}
+										],
+										"outputs": [
+											{
+												"referenceName": "SWNAzureSqlDb",
+												"type": "DatasetReference",
+												"parameters": {
+													"TableName": {
+														"value": "@activity('LookupMasterFileData').output.value[0].TargetFile",
+														"type": "Expression"
+													},
+													"SchemaName": "target"
+												}
+											}
+										]
+									}
+								]
+							}
+						}
+					]
+				}
+			},
+			{
+				"name": "Copy File Data using Wildcard",
+				"type": "Copy",
+				"dependsOn": [
+					{
+						"activity": "Set variable Container",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					}
+				],
+				"policy": {
+					"timeout": "0.12:00:00",
+					"retry": 0,
+					"retryIntervalInSeconds": 30,
+					"secureOutput": false,
+					"secureInput": false
+				},
+				"userProperties": [],
+				"typeProperties": {
+					"source": {
+						"type": "DelimitedTextSource",
+						"storeSettings": {
+							"type": "AzureBlobStorageReadSettings",
+							"recursive": true,
+							"wildcardFileName": "WorldPopulation?.csv",
+							"enablePartitionDiscovery": false
+						},
+						"formatSettings": {
+							"type": "DelimitedTextReadSettings"
+						}
+					},
+					"sink": {
+						"type": "DelimitedTextSink",
+						"storeSettings": {
+							"type": "AzureBlobStorageWriteSettings",
+							"copyBehavior": "MergeFiles"
+						},
+						"formatSettings": {
+							"type": "DelimitedTextWriteSettings",
+							"quoteAllText": true,
+							"fileExtension": ".txt"
+						}
+					},
+					"enableStaging": false,
+					"translator": {
+						"type": "TabularTranslator",
+						"typeConversion": true,
+						"typeConversionSettings": {
+							"allowDataTruncation": true,
+							"treatBooleanAsNumber": false
+						}
+					}
+				},
+				"inputs": [
+					{
+						"referenceName": "CSVDataset",
+						"type": "DatasetReference",
+						"parameters": {
+							"ContainerPath": {
+								"value": "@variables('ContainerName')",
+								"type": "Expression"
+							},
+							"DirectoryPath": {
+								"value": "@replace(activity('LookupMasterFileData').output.value[0].FilePath,'swn-hr/','')",
+								"type": "Expression"
+							},
+							"FilePath": {
+								"value": "@activity('LookupMasterFileData').output.value[0].FileName",
+								"type": "Expression"
+							}
+						}
+					}
+				],
+				"outputs": [
+					{
+						"referenceName": "CSVDataset",
+						"type": "DatasetReference",
+						"parameters": {
+							"ContainerPath": {
+								"value": "@variables('ContainerName')",
+								"type": "Expression"
+							},
+							"DirectoryPath": {
+								"value": "@replace(activity('LookupMasterFileData').output.value[0].FilePath,'swn-hr/','')",
+								"type": "Expression"
+							},
+							"FilePath": {
+								"value": "@activity('LookupMasterFileData').output.value[0].TargetFile",
+								"type": "Expression"
+							}
+						}
+					}
+				]
+			},
+			{
+				"name": "Set variable Container",
+				"type": "SetVariable",
+				"dependsOn": [
+					{
+						"activity": "LookupMasterFileData",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					}
+				],
+				"userProperties": [],
+				"typeProperties": {
+					"variableName": "ContainerName",
+					"value": {
+						"value": "@substring(string(activity('LookupMasterFileData').output.value[0].FilePath),0,6)",
+						"type": "Expression"
+					}
+				}
+			}
+		],
+		"parameters": {
+			"ContainerPath": {
+				"type": "string",
+				"defaultValue": "swn-hr"
+			},
+			"DirectoryPath": {
+				"type": "string",
+				"defaultValue": "RawFiles/MasterFiles"
+			},
+			"MasterFile": {
+				"type": "string",
+				"defaultValue": "MasterFile.csv"
+			}
+		},
+		"variables": {
+			"ContainerName": {
+				"type": "String"
+			}
+		},
+		"annotations": [],
+		"lastPublishTime": "2022-10-25T05:04:45Z"
+	},
+	"type": "Microsoft.DataFactory/factories/pipelines"
+}

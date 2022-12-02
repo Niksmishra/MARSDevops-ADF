@@ -1,0 +1,218 @@
+{
+	"name": "SWE_EnergyConsumption_OnPremSQLServer",
+	"properties": {
+		"activities": [
+			{
+				"name": "Copy SQL Server data to Staging Table",
+				"description": "On-prem to Azure SQL DB",
+				"type": "Copy",
+				"dependsOn": [
+					{
+						"activity": "Lookup Audit Table for details",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					}
+				],
+				"policy": {
+					"timeout": "0.12:00:00",
+					"retry": 0,
+					"retryIntervalInSeconds": 30,
+					"secureOutput": false,
+					"secureInput": false
+				},
+				"userProperties": [],
+				"typeProperties": {
+					"source": {
+						"type": "SqlServerSource",
+						"queryTimeout": "02:00:00",
+						"partitionOption": "None"
+					},
+					"sink": {
+						"type": "AzureSqlSink",
+						"preCopyScript": {
+							"value": "@{concat('TRUNCATE TABLE ',activity('Lookup Audit Table for details').output.firstRow.StagingSchema,'.',activity('Lookup Audit Table for details').output.firstRow.StagingTable)}",
+							"type": "Expression"
+						},
+						"writeBehavior": "insert",
+						"sqlWriterUseTableLock": false,
+						"disableMetricsCollection": false
+					},
+					"enableStaging": false,
+					"translator": {
+						"type": "TabularTranslator",
+						"typeConversion": true,
+						"typeConversionSettings": {
+							"allowDataTruncation": true,
+							"treatBooleanAsNumber": false
+						}
+					}
+				},
+				"inputs": [
+					{
+						"referenceName": "GenericSQLServer",
+						"type": "DatasetReference",
+						"parameters": {
+							"SchemaName": {
+								"value": "@activity('Lookup Audit Table for details').output.firstRow.SourceSchema",
+								"type": "Expression"
+							},
+							"TableName": {
+								"value": "@activity('Lookup Audit Table for details').output.firstRow.SourceTable",
+								"type": "Expression"
+							}
+						}
+					}
+				],
+				"outputs": [
+					{
+						"referenceName": "SWNAzureSqlDb",
+						"type": "DatasetReference",
+						"parameters": {
+							"TableName": {
+								"value": "@activity('Lookup Audit Table for details').output.firstRow.StagingTable",
+								"type": "Expression"
+							},
+							"SchemaName": {
+								"value": "@activity('Lookup Audit Table for details').output.firstRow.StagingSchema",
+								"type": "Expression"
+							}
+						}
+					}
+				]
+			},
+			{
+				"name": "Data flow for Transformation",
+				"type": "ExecuteDataFlow",
+				"dependsOn": [
+					{
+						"activity": "Copy SQL Server data to Staging Table",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					}
+				],
+				"policy": {
+					"timeout": "0.12:00:00",
+					"retry": 0,
+					"retryIntervalInSeconds": 30,
+					"secureOutput": false,
+					"secureInput": false
+				},
+				"userProperties": [],
+				"typeProperties": {
+					"dataflow": {
+						"referenceName": "SWNEnergyConsumptionDF",
+						"type": "DataFlowReference",
+						"parameters": {
+							"TargetSchemaName": {
+								"value": "'@{activity('Lookup Audit Table for details').output.firstRow.TargetSchema}'",
+								"type": "Expression"
+							},
+							"TargetTableName": {
+								"value": "'@{activity('Lookup Audit Table for details').output.firstRow.LookupTable}'",
+								"type": "Expression"
+							},
+							"Run_id": {
+								"value": "'@{activity('Lookup Audit Table for details').output.firstRow.RunID}'",
+								"type": "Expression"
+							}
+						},
+						"datasetParameters": {
+							"OnPremSQLServerSrc": {
+								"TableName": {
+									"value": "@activity('Lookup Audit Table for details').output.firstRow.StagingTable",
+									"type": "Expression"
+								},
+								"SchemaName": {
+									"value": "@activity('Lookup Audit Table for details').output.firstRow.StagingSchema",
+									"type": "Expression"
+								}
+							},
+							"WorldPopFromAzureSQLDB": {
+								"TableName": {
+									"value": "@activity('Lookup Audit Table for details').output.firstRow.LookupTable",
+									"type": "Expression"
+								},
+								"SchemaName": {
+									"value": "@activity('Lookup Audit Table for details').output.firstRow.TargetSchema",
+									"type": "Expression"
+								}
+							},
+							"sinkToAzureSQLTable": {
+								"TableName": {
+									"value": "@activity('Lookup Audit Table for details').output.firstRow.TargetTable",
+									"type": "Expression"
+								},
+								"SchemaName": {
+									"value": "@activity('Lookup Audit Table for details').output.firstRow.TargetSchema",
+									"type": "Expression"
+								}
+							},
+							"sinkToCSVFile": {
+								"ContainerPath": {
+									"value": "@activity('Lookup Audit Table for details').output.firstRow.FileContainer",
+									"type": "Expression"
+								},
+								"DirectoryPath": {
+									"value": "@activity('Lookup Audit Table for details').output.firstRow.FilePath",
+									"type": "Expression"
+								},
+								"FilePath": {
+									"value": "@activity('Lookup Audit Table for details').output.firstRow.FileName",
+									"type": "Expression"
+								}
+							}
+						}
+					},
+					"compute": {
+						"coreCount": 8,
+						"computeType": "General"
+					},
+					"traceLevel": "Fine"
+				}
+			},
+			{
+				"name": "Lookup Audit Table for details",
+				"type": "Lookup",
+				"dependsOn": [],
+				"policy": {
+					"timeout": "0.12:00:00",
+					"retry": 0,
+					"retryIntervalInSeconds": 30,
+					"secureOutput": false,
+					"secureInput": false
+				},
+				"userProperties": [],
+				"typeProperties": {
+					"source": {
+						"type": "AzureSqlSource",
+						"sqlReaderQuery": {
+							"value": "SELECT * FROM config.AuditTable WHERE PipelineName =@{pipeline().parameters.PipelineName}",
+							"type": "Expression"
+						},
+						"queryTimeout": "02:00:00",
+						"partitionOption": "None"
+					},
+					"dataset": {
+						"referenceName": "SWNAzureSqlDb",
+						"type": "DatasetReference",
+						"parameters": {
+							"TableName": "n\\a",
+							"SchemaName": "n\\a"
+						}
+					}
+				}
+			}
+		],
+		"parameters": {
+			"PipelineName": {
+				"type": "string",
+				"defaultValue": "'SWE_EnergyConsumption_OnPremSQLServer'"
+			}
+		},
+		"annotations": [],
+		"lastPublishTime": "2022-10-25T22:04:36Z"
+	},
+	"type": "Microsoft.DataFactory/factories/pipelines"
+}

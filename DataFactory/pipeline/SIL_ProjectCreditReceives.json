@@ -1,0 +1,55 @@
+{
+	"name": "SIL_ProjectCreditReceives",
+	"properties": {
+		"activities": [
+			{
+				"name": "Wait1",
+				"type": "Wait",
+				"dependsOn": [],
+				"userProperties": [],
+				"typeProperties": {
+					"waitTimeInSeconds": 20
+				}
+			},
+			{
+				"name": "Publishing Event",
+				"type": "ExecutePipeline",
+				"dependsOn": [
+					{
+						"activity": "Wait1",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					}
+				],
+				"userProperties": [],
+				"typeProperties": {
+					"pipeline": {
+						"referenceName": "Generic_pipeline",
+						"type": "PipelineReference"
+					},
+					"waitOnCompletion": true,
+					"parameters": {
+						"PipelineName": {
+							"value": "@pipeline().Pipeline",
+							"type": "Expression"
+						}
+					}
+				}
+			}
+		],
+		"variables": {
+			"myid": {
+				"type": "String"
+			}
+		},
+		"folder": {
+			"name": "Orchestration"
+		},
+		"annotations": [
+			"SIL_Business_Grp"
+		],
+		"lastPublishTime": "2022-10-28T14:22:49Z"
+	},
+	"type": "Microsoft.DataFactory/factories/pipelines"
+}

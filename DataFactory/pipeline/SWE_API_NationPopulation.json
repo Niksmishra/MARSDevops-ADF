@@ -1,0 +1,191 @@
+{
+	"name": "SWE_API_NationPopulation",
+	"properties": {
+		"activities": [
+			{
+				"name": "Lookup for API details",
+				"description": "Pipeline Parameter is passed to the query in lookup for fetching data in configtable",
+				"type": "Lookup",
+				"dependsOn": [],
+				"policy": {
+					"timeout": "0.12:00:00",
+					"retry": 0,
+					"retryIntervalInSeconds": 30,
+					"secureOutput": false,
+					"secureInput": false
+				},
+				"userProperties": [],
+				"typeProperties": {
+					"source": {
+						"type": "AzureSqlSource",
+						"sqlReaderQuery": {
+							"value": "SELECT ParameterName,\nParameterValue,\nFileName,\nFileType,\nProcessFlg,\nStagingSchema,\nStagingTable,\nTargetTable,\nTargetSchema,\nContainer,\nDirectoryPath\nFROM config.Static_Parameters_tbl st,\nconfig.ConfigTable cnf \nWHERE cnf.PipelineName=st.PipelineName\nand st.PipelineName='@{pipeline().parameters.PipelineName}'",
+							"type": "Expression"
+						},
+						"queryTimeout": "02:00:00",
+						"partitionOption": "None"
+					},
+					"dataset": {
+						"referenceName": "SWNAzureSqlDb",
+						"type": "DatasetReference",
+						"parameters": {
+							"TableName": "n\\a",
+							"SchemaName": "n\\a"
+						}
+					},
+					"firstRowOnly": true
+				}
+			},
+			{
+				"name": "APICall",
+				"description": "API response json file is saved on blob storage",
+				"type": "Copy",
+				"dependsOn": [
+					{
+						"activity": "Lookup for API details",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					}
+				],
+				"policy": {
+					"timeout": "0.12:00:00",
+					"retry": 0,
+					"retryIntervalInSeconds": 30,
+					"secureOutput": false,
+					"secureInput": false
+				},
+				"userProperties": [],
+				"typeProperties": {
+					"source": {
+						"type": "RestSource",
+						"httpRequestTimeout": "00:01:40",
+						"requestInterval": "00.00:00:00.010",
+						"requestMethod": "GET",
+						"paginationRules": {
+							"supportRFC5988": "true"
+						}
+					},
+					"sink": {
+						"type": "JsonSink",
+						"storeSettings": {
+							"type": "AzureBlobStorageWriteSettings"
+						},
+						"formatSettings": {
+							"type": "JsonWriteSettings"
+						}
+					},
+					"enableStaging": false
+				},
+				"inputs": [
+					{
+						"referenceName": "GenericRestAPI",
+						"type": "DatasetReference",
+						"parameters": {
+							"APIPath": {
+								"value": "@activity('Lookup for API details').output.firstRow.ParameterValue",
+								"type": "Expression"
+							}
+						}
+					}
+				],
+				"outputs": [
+					{
+						"referenceName": "GenericJsonDS",
+						"type": "DatasetReference",
+						"parameters": {
+							"Container": {
+								"value": "@activity('Lookup for API details').output.firstRow.Container",
+								"type": "Expression"
+							},
+							"Directory": {
+								"value": "@activity('Lookup for API details').output.firstRow.DirectoryPath",
+								"type": "Expression"
+							},
+							"JsonFileName": {
+								"value": "@activity('Lookup for API details').output.firstRow.FileName",
+								"type": "Expression"
+							}
+						}
+					}
+				]
+			},
+			{
+				"name": "Data flow for JSON File",
+				"type": "ExecuteDataFlow",
+				"dependsOn": [
+					{
+						"activity": "APICall",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					}
+				],
+				"policy": {
+					"timeout": "0.12:00:00",
+					"retry": 0,
+					"retryIntervalInSeconds": 30,
+					"secureOutput": false,
+					"secureInput": false
+				},
+				"userProperties": [],
+				"typeProperties": {
+					"dataflow": {
+						"referenceName": "SweJsonDataflow",
+						"type": "DataFlowReference",
+						"parameters": {
+							"FileName": {
+								"value": "'@{concat(activity('Lookup for API details').output.firstRow.TargetTable,'.csv')}'",
+								"type": "Expression"
+							}
+						},
+						"datasetParameters": {
+							"JsonSource": {
+								"Container": {
+									"value": "@activity('Lookup for API details').output.firstRow.Container",
+									"type": "Expression"
+								},
+								"Directory": {
+									"value": "@activity('Lookup for API details').output.firstRow.DirectoryPath",
+									"type": "Expression"
+								},
+								"JsonFileName": {
+									"value": "@activity('Lookup for API details').output.firstRow.FileName",
+									"type": "Expression"
+								}
+							},
+							"sinktoCSV": {
+								"ContainerPath": {
+									"value": "@activity('Lookup for API details').output.firstRow.Container",
+									"type": "Expression"
+								},
+								"DirectoryPath": {
+									"value": "@activity('Lookup for API details').output.firstRow.DirectoryPath",
+									"type": "Expression"
+								},
+								"FilePath": {
+									"value": "@concat(activity('Lookup for API details').output.firstRow.TargetTable,'.csv')",
+									"type": "Expression"
+								}
+							}
+						}
+					},
+					"compute": {
+						"coreCount": 8,
+						"computeType": "General"
+					},
+					"traceLevel": "Fine"
+				}
+			}
+		],
+		"parameters": {
+			"PipelineName": {
+				"type": "string",
+				"defaultValue": "SWE_API_NationPopulation"
+			}
+		},
+		"annotations": [],
+		"lastPublishTime": "2022-10-23T17:09:06Z"
+	},
+	"type": "Microsoft.DataFactory/factories/pipelines"
+}

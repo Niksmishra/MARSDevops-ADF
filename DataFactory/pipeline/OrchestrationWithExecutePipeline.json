@@ -1,0 +1,182 @@
+{
+	"name": "OrchestrationWithExecutePipeline",
+	"properties": {
+		"activities": [
+			{
+				"name": "Start_Execution_Plan_PPL",
+				"type": "ExecutePipeline",
+				"dependsOn": [],
+				"userProperties": [],
+				"typeProperties": {
+					"pipeline": {
+						"referenceName": "Start_Execution_Plan_PPL",
+						"type": "PipelineReference"
+					},
+					"waitOnCompletion": true
+				}
+			},
+			{
+				"name": "SIL_UserDimention",
+				"type": "ExecutePipeline",
+				"dependsOn": [
+					{
+						"activity": "Start_Execution_Plan_PPL",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					}
+				],
+				"userProperties": [],
+				"typeProperties": {
+					"pipeline": {
+						"referenceName": "SIL_UserDimention",
+						"type": "PipelineReference"
+					},
+					"waitOnCompletion": true
+				}
+			},
+			{
+				"name": "SIL_ProjectCreditReceives",
+				"type": "ExecutePipeline",
+				"dependsOn": [
+					{
+						"activity": "SIL_UserDimention",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					},
+					{
+						"activity": "SIL_ProjectRevenueLine_Fact",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					}
+				],
+				"userProperties": [],
+				"typeProperties": {
+					"pipeline": {
+						"referenceName": "SIL_ProjectCreditReceives",
+						"type": "PipelineReference"
+					},
+					"waitOnCompletion": true
+				}
+			},
+			{
+				"name": "SIL_EventDimension",
+				"type": "ExecutePipeline",
+				"dependsOn": [
+					{
+						"activity": "SIL_UserDimention",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					}
+				],
+				"userProperties": [],
+				"typeProperties": {
+					"pipeline": {
+						"referenceName": "SIL_EventDimension",
+						"type": "PipelineReference"
+					},
+					"waitOnCompletion": true
+				}
+			},
+			{
+				"name": "SIL_ProjectFundingLineCredit_Fact",
+				"type": "ExecutePipeline",
+				"dependsOn": [
+					{
+						"activity": "SIL_ProjectCreditReceives",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					}
+				],
+				"userProperties": [],
+				"typeProperties": {
+					"pipeline": {
+						"referenceName": "SIL_ProjectFundingLineCredit_Fact",
+						"type": "PipelineReference"
+					},
+					"waitOnCompletion": true
+				}
+			},
+			{
+				"name": "SIL_CustomerAccountDimen",
+				"type": "ExecutePipeline",
+				"dependsOn": [
+					{
+						"activity": "SIL_EventDimension",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					},
+					{
+						"activity": "SIL_UserDimention",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					}
+				],
+				"userProperties": [],
+				"typeProperties": {
+					"pipeline": {
+						"referenceName": "SIL_CustomerAccountDimen",
+						"type": "PipelineReference"
+					},
+					"waitOnCompletion": true
+				}
+			},
+			{
+				"name": "SIL_ProjectRevenueLine_Fact",
+				"type": "ExecutePipeline",
+				"dependsOn": [
+					{
+						"activity": "SIL_UserDimention",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					}
+				],
+				"userProperties": [],
+				"typeProperties": {
+					"pipeline": {
+						"referenceName": "SIL_ProjectRevenueLine_Fact",
+						"type": "PipelineReference"
+					},
+					"waitOnCompletion": true
+				}
+			},
+			{
+				"name": "SIL_CustomerAccountDimen_SCDUpdate",
+				"type": "ExecutePipeline",
+				"dependsOn": [
+					{
+						"activity": "SIL_EventDimension",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					},
+					{
+						"activity": "SIL_ProjectCreditReceives",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					}
+				],
+				"userProperties": [],
+				"typeProperties": {
+					"pipeline": {
+						"referenceName": "SIL_CustomerAccountDimen_SCDUpdate",
+						"type": "PipelineReference"
+					},
+					"waitOnCompletion": true
+				}
+			}
+		],
+		"folder": {
+			"name": "Orchestration"
+		},
+		"annotations": []
+	}
+}

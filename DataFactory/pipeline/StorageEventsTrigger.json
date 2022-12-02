@@ -1,0 +1,22 @@
+{
+	"name": "StorageEventsTrigger",
+	"properties": {
+		"activities": [
+			{
+				"name": "Wait1",
+				"type": "Wait",
+				"dependsOn": [],
+				"userProperties": [],
+				"typeProperties": {
+					"waitTimeInSeconds": 20
+				}
+			}
+		],
+		"folder": {
+			"name": "Triggers"
+		},
+		"annotations": [
+			"Triggers"
+		]
+	}
+}

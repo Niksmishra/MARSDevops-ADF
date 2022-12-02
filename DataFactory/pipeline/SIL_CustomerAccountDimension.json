@@ -1,0 +1,19 @@
+{
+	"name": "SIL_CustomerAccountDimension",
+	"properties": {
+		"activities": [
+			{
+				"name": "Wait1",
+				"type": "Wait",
+				"dependsOn": [],
+				"userProperties": [],
+				"typeProperties": {
+					"waitTimeInSeconds": 5
+				}
+			}
+		],
+		"annotations": [],
+		"lastPublishTime": "2022-10-27T12:15:56Z"
+	},
+	"type": "Microsoft.DataFactory/factories/pipelines"
+}

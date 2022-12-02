@@ -1,0 +1,100 @@
+{
+	"name": "ErrorHandlingAndEmailNotification",
+	"properties": {
+		"activities": [
+			{
+				"name": "Execute Pipeline1",
+				"type": "ExecutePipeline",
+				"dependsOn": [
+					{
+						"activity": "Lookup1",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					}
+				],
+				"userProperties": [],
+				"typeProperties": {
+					"pipeline": {
+						"referenceName": "SIL_EventDimension",
+						"type": "PipelineReference"
+					},
+					"waitOnCompletion": true
+				}
+			},
+			{
+				"name": "FailedNotification",
+				"type": "WebActivity",
+				"dependsOn": [
+					{
+						"activity": "Lookup1",
+						"dependencyConditions": [
+							"Failed"
+						]
+					}
+				],
+				"policy": {
+					"timeout": "0.12:00:00",
+					"retry": 0,
+					"retryIntervalInSeconds": 30,
+					"secureOutput": false,
+					"secureInput": false
+				},
+				"userProperties": [],
+				"typeProperties": {
+					"url": "https://prod-05.centralus.logic.azure.com:443/workflows/850bc81d610e41fe8a1418b2cd8fc80f/triggers/manual/paths/invoke?api-version=2016-10-01&sp=%2Ftriggers%2Fmanual%2Frun&sv=1.0&sig=ngYHpKrh2Ku8XNOEkyPcT08hjhYVhR8m-qSd0tiP288",
+					"method": "POST",
+					"body": {
+						"value": "{\n\"message\":\"@{activity('Lookup1').Error.Message}\",\n\"dataFactoryName\":\"@{pipeline().DataFactory}\",\n\"pipelineName\":\"@{pipeline().Pipeline}\",\n\"pipelineRunId\":\"@{pipeline().RunId}\",\n\"triggername\":\"@{pipeline().TriggerName}\"\n}",
+						"type": "Expression"
+					}
+				}
+			},
+			{
+				"name": "Lookup1",
+				"description": "added description 1.1",
+				"type": "Lookup",
+				"dependsOn": [],
+				"policy": {
+					"timeout": "0.12:00:00",
+					"retry": 0,
+					"retryIntervalInSeconds": 30,
+					"secureOutput": false,
+					"secureInput": false
+				},
+				"userProperties": [],
+				"typeProperties": {
+					"source": {
+						"type": "DelimitedTextSource",
+						"storeSettings": {
+							"type": "AzureBlobStorageReadSettings",
+							"recursive": true,
+							"enablePartitionDiscovery": false
+						},
+						"formatSettings": {
+							"type": "DelimitedTextReadSettings"
+						}
+					},
+					"dataset": {
+						"referenceName": "DelimitedText4",
+						"type": "DatasetReference"
+					},
+					"firstRowOnly": false
+				}
+			}
+		],
+		"variables": {
+			"Error": {
+				"type": "String"
+			}
+		},
+		"folder": {
+			"name": "ErrorHandling"
+		},
+		"annotations": [
+			"ErrorHandling"
+		],
+		"lastPublishTime": "2022-10-28T13:37:06Z"
+	},
+	"type": "Microsoft.DataFactory/factories/pipelines"
+}

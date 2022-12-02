@@ -1,0 +1,65 @@
+{
+	"name": "Generic_pipeline",
+	"properties": {
+		"activities": [
+			{
+				"name": "Set variable1",
+				"type": "SetVariable",
+				"dependsOn": [],
+				"userProperties": [],
+				"typeProperties": {
+					"variableName": "myid",
+					"value": {
+						"value": "@concat('[{\"id\":\"',string(rand(1,5000000)),'\",\"eventType\":\"',pipeline().parameters.PipelineName,'\",\"subject\":\"pipeline\",\"eventTime\":\"',pipeline().TriggerTime,'\",\"data\":{\"status\":\"completed\"},\"dataVersion\":\"1.0\"}]')",
+						"type": "Expression"
+					}
+				}
+			},
+			{
+				"name": "Web1",
+				"type": "WebActivity",
+				"dependsOn": [
+					{
+						"activity": "Set variable1",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					}
+				],
+				"policy": {
+					"timeout": "0.12:00:00",
+					"retry": 0,
+					"retryIntervalInSeconds": 30,
+					"secureOutput": false,
+					"secureInput": false
+				},
+				"userProperties": [],
+				"typeProperties": {
+					"url": "https://eventgrid1new.eastus-1.eventgrid.azure.net/api/events",
+					"method": "POST",
+					"headers": {
+						"aeg-sas-key": "cFswjlPnzXjrRhOBHQoo5tlSxMXk7kyJecI5R5d2w28="
+					},
+					"body": {
+						"value": "@json(variables('myid'))",
+						"type": "Expression"
+					}
+				}
+			}
+		],
+		"parameters": {
+			"PipelineName": {
+				"type": "string"
+			}
+		},
+		"variables": {
+			"myid": {
+				"type": "String"
+			},
+			"PipelineNameVariable": {
+				"type": "String"
+			}
+		},
+		"annotations": []
+	}
+}

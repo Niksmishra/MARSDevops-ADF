@@ -1,0 +1,171 @@
+{
+	"name": "LargeVolumeData",
+	"properties": {
+		"activities": [
+			{
+				"name": "Json to SQLDB",
+				"type": "Copy",
+				"dependsOn": [],
+				"policy": {
+					"timeout": "0.12:00:00",
+					"retry": 0,
+					"retryIntervalInSeconds": 30,
+					"secureOutput": false,
+					"secureInput": false
+				},
+				"userProperties": [],
+				"typeProperties": {
+					"source": {
+						"type": "JsonSource",
+						"storeSettings": {
+							"type": "AzureBlobStorageReadSettings",
+							"recursive": true,
+							"wildcardFolderPath": "RawFiles/InputFiles",
+							"wildcardFileName": "Energy_Consumption_Production_largeVolume.json",
+							"enablePartitionDiscovery": false
+						},
+						"formatSettings": {
+							"type": "JsonReadSettings"
+						}
+					},
+					"sink": {
+						"type": "AzureSqlSink",
+						"preCopyScript": "truncate table [staging].[EnergyConsumption_L];",
+						"writeBehavior": "insert",
+						"sqlWriterUseTableLock": true,
+						"disableMetricsCollection": false
+					},
+					"enableStaging": false,
+					"parallelCopies": {
+						"value": "@pipeline().parameters.CopyParallelism",
+						"type": "Expression"
+					},
+					"dataIntegrationUnits": {
+						"value": "@pipeline().parameters.DIU",
+						"type": "Expression"
+					},
+					"translator": {
+						"type": "TabularTranslator",
+						"mappings": [
+							{
+								"source": {
+									"path": "$['Year']"
+								},
+								"sink": {
+									"name": "year",
+									"type": "String"
+								}
+							},
+							{
+								"source": {
+									"path": "$['Fuel_ID']"
+								},
+								"sink": {
+									"name": "Fuel_ID",
+									"type": "Int32"
+								}
+							},
+							{
+								"source": {
+									"path": "$['Fuel_Type']"
+								},
+								"sink": {
+									"name": "Fuel_Type",
+									"type": "String"
+								}
+							},
+							{
+								"source": {
+									"path": "$['Region_ID']"
+								},
+								"sink": {
+									"name": "Region_ID",
+									"type": "String"
+								}
+							},
+							{
+								"source": {
+									"path": "$['Country_ID']"
+								},
+								"sink": {
+									"name": "Country_id",
+									"type": "String"
+								}
+							},
+							{
+								"source": {
+									"path": "$['Country']"
+								},
+								"sink": {
+									"name": "Country",
+									"type": "String"
+								}
+							},
+							{
+								"source": {
+									"path": "$['Consumption']"
+								},
+								"sink": {
+									"name": "Consumption",
+									"type": "String"
+								}
+							},
+							{
+								"source": {
+									"path": "$['Production']"
+								},
+								"sink": {
+									"name": "Production",
+									"type": "String"
+								}
+							},
+							{
+								"source": {
+									"path": "$['Trade']"
+								},
+								"sink": {
+									"name": "Trade",
+									"type": "Decimal"
+								}
+							}
+						]
+					}
+				},
+				"inputs": [
+					{
+						"referenceName": "GenericJsonDS",
+						"type": "DatasetReference",
+						"parameters": {
+							"Container": "swn-hr",
+							"Directory": "RawFiles/InputFiles",
+							"JsonFileName": "file"
+						}
+					}
+				],
+				"outputs": [
+					{
+						"referenceName": "SWNAzureSqlDb",
+						"type": "DatasetReference",
+						"parameters": {
+							"TableName": "EnergyConsumption_L",
+							"SchemaName": "staging"
+						}
+					}
+				]
+			}
+		],
+		"parameters": {
+			"DIU": {
+				"type": "int",
+				"defaultValue": 4
+			},
+			"CopyParallelism": {
+				"type": "int",
+				"defaultValue": 32
+			}
+		},
+		"annotations": [],
+		"lastPublishTime": "2022-10-28T14:22:49Z"
+	},
+	"type": "Microsoft.DataFactory/factories/pipelines"
+}
